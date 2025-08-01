@@ -1,103 +1,268 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { pixelOperations, PixelData } from '../lib/supabase';
+
+// Using PixelData from supabase.ts instead of local interface
+
+const VERTICAL_PIXELS = 20;
+const HORIZONTAL_PIXELS = 40;
+const TOTAL_PIXELS = VERTICAL_PIXELS * HORIZONTAL_PIXELS;
+
+const AVAILABLE_COLORS = [
+  '#FF6B6B', // Red
+  '#4ECDC4', // Teal  
+  '#45B7D1', // Blue
+  '#96CEB4', // Green
+  '#FECA57', // Yellow
+  '#FF9FF3', // Pink
+  '#54A0FF', // Light Blue
+  '#5F27CD', // Purple
+  '#00D2D3', // Cyan
+  '#FF9F43', // Orange
+  '#10AC84', // Emerald
+  '#EE5A6F', // Rose
+];
+
+const EMOJIS = [
+  "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇",
+  "🙂", "☺️", "😋", "😛", "🤗", "🤭", "🥰", "😍", "🤩", "😘",
+  "😗", "😚", "😙", "🥳"
+];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [pixels, setPixels] = useState<PixelData[]>([]);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedPixel, setSelectedPixel] = useState<number | null>(null);
+  const [adopter, setAdopter] = useState('');
+  const [selectedColor, setSelectedColor] = useState(AVAILABLE_COLORS[0]);
+  const [loading, setLoading] = useState(true);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Initialize and load pixels from Supabase
+  useEffect(() => {
+    const loadPixels = async () => {
+      const loadedPixels = await pixelOperations.getAllPixels();
+      setPixels(loadedPixels);
+    };
+
+    const initializeApp = async () => {
+      setLoading(true);
+      
+      // Initialize pixels in database if needed
+      await pixelOperations.initializePixels(TOTAL_PIXELS);
+      
+      // Load current pixel state
+      await loadPixels();
+      
+      setLoading(false);
+    };
+
+    initializeApp();
+
+    // Subscribe to real-time changes
+    const subscription = pixelOperations.subscribeToPixelChanges((payload) => {
+      if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+        const updatedPixel = payload.new as PixelData;
+        setPixels(prev => 
+          prev.map(pixel => 
+            pixel.id === updatedPixel.id ? updatedPixel : pixel
+          )
+        );
+      }
+    });
+
+    // Auto-refresh every 10 seconds
+    const refreshInterval = setInterval(() => {
+      loadPixels();
+    }, 10000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearInterval(refreshInterval);
+    };
+  }, []);
+
+  // Check if all pixels are adopted and reset if so
+  useEffect(() => {
+    if (pixels.length > 0 && pixels.every(pixel => pixel.adopted)) {
+      setTimeout(async () => {
+        await pixelOperations.resetAllPixels();
+        // The real-time subscription will update the UI automatically
+      }, 9000); // Wait 9 seconds before reset
+    }
+  }, [pixels]);
+
+  const handlePixelClick = (pixelId: number) => {
+    const pixel = pixels[pixelId];
+    if (!pixel.adopted) {
+      setSelectedPixel(pixelId);
+      setShowModal(true);
+    }
+  };
+
+  const handleAdopt = async () => {
+    if (selectedPixel !== null && adopter.trim()) {
+      const randomEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+      
+      const success = await pixelOperations.adoptPixel(
+        selectedPixel, 
+        adopter.trim(), 
+        selectedColor, 
+        randomEmoji
+      );
+      
+      if (success) {
+        setShowModal(false);
+        setSelectedPixel(null);
+        setAdopter('');
+        setSelectedColor(AVAILABLE_COLORS[0]);
+      } else {
+        alert('Failed to adopt pixel. Please try again.');
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    setShowModal(false);
+    setSelectedPixel(null);
+    setAdopter('');
+    setSelectedColor(AVAILABLE_COLORS[0]);
+  };
+
+  const adoptedCount = pixels.filter(p => p.adopted).length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading pixels...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+      <div className="max-w-4xl w-full">
+        <h1 className="text-4xl font-bold text-center mb-2 text-gray-800">
+          Adopt a Pixel
+        </h1>
+        <p className="text-center text-gray-600 mb-6">
+          Click on a grey pixel to adopt it! ({adoptedCount}/{TOTAL_PIXELS} adopted)
+        </p>
+        <p className="text-center text-xs text-gray-500 mb-4">
+          Grid: {HORIZONTAL_PIXELS} × {VERTICAL_PIXELS} pixels
+        </p>
+        <p className="text-center text-sm text-gray-500 mb-4">
+          🔄 Live updates
+        </p>
+        
+        {/* Pixel Grid */}
+        <div className="flex justify-center">
+          <div 
+            className="grid gap-1 bg-white p-4 rounded-lg shadow-lg"
+            style={{ 
+              gridTemplateColumns: `repeat(${HORIZONTAL_PIXELS}, 1fr)`,
+              width: 'fit-content'
+            }}
+          >
+          {pixels.map((pixel) => (
+            <div
+              key={pixel.id}
+              onClick={() => handlePixelClick(pixel.id)}
+              className={`
+                w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 rounded-sm cursor-pointer transition-all duration-200 
+                hover:scale-110 hover:shadow-md flex items-center justify-center text-xs
+                ${!pixel.adopted ? 'hover:bg-gray-300' : ''}
+              `}
+              style={{ backgroundColor: pixel.color }}
+              title={pixel.adopted ? `Adopted by ${pixel.adopter}` : 'Click to adopt me!'}
+            >
+              {pixel.adopted && (
+                <span className="text-xs sm:text-sm">{pixel.emoji}</span>
+              )}
+            </div>
+          ))}
+          </div>
+        </div>
+
+        {adoptedCount === TOTAL_PIXELS && (
+          <div className="text-center mt-6 p-4 bg-green-100 rounded-lg">
+            <p className="text-green-800 font-semibold text-lg">
+              🎉 All pixels adopted! Resetting in 10 seconds... 🎉
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Adoption Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">
+              🥺 Will you adopt me?
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Your name:
+                </label>
+                <input
+                  type="text"
+                  value={adopter}
+                  onChange={(e) => setAdopter(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter your name"
+                  maxLength={20}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Choose a color:
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVAILABLE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setSelectedColor(color)}
+                      className={`
+                        w-8 h-8 rounded-full border-2 transition-all
+                        ${selectedColor === color ? 'border-gray-800 scale-110' : 'border-gray-300'}
+                      `}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+                >
+                  Maybe later
+                </button>
+                <button
+                  onClick={handleAdopt}
+                  disabled={!adopter.trim()}
+                  className={`
+                    flex-1 px-4 py-2 rounded-md transition-colors
+                    ${adopter.trim() 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  Yes, adopt! 💖
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
