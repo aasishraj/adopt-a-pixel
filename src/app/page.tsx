@@ -11,17 +11,17 @@ const TOTAL_PIXELS = VERTICAL_PIXELS * HORIZONTAL_PIXELS;
 
 const AVAILABLE_COLORS = [
   '#FF6B6B', // Red
-  '#4ECDC4', // Teal  
-  '#45B7D1', // Blue
-  '#96CEB4', // Green
-  '#FECA57', // Yellow
-  '#FF9FF3', // Pink
-  '#54A0FF', // Light Blue
-  '#5F27CD', // Purple
-  '#00D2D3', // Cyan
+  '#FFFFFF', // White
   '#FF9F43', // Orange
-  '#10AC84', // Emerald
-  '#EE5A6F', // Rose
+  '#48DBFB', // Sky Blue
+  '#5F27CD', // Purple
+  '#F368E0', // Hot Pink
+  '#00B894', // Jade
+  '#FFDC00', // Bright Yellow
+  '#A3CB38', // Lime Green
+  '#341F97', // Deep Indigo
+  '#FF793F', // Coral
+  '#222F3E', // Dark Gray-Blue
 ];
 
 const EMOJIS = [
@@ -88,7 +88,7 @@ export default function Home() {
       setTimeout(async () => {
         await pixelOperations.resetAllPixels();
         // The real-time subscription will update the UI automatically
-      }, 9000); // Wait 9 seconds before reset
+      }, 5000); // Wait 5 seconds before reset
     }
   }, [pixels]);
 
@@ -213,7 +213,7 @@ export default function Home() {
                   type="text"
                   value={adopter}
                   onChange={(e) => setAdopter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:shadow-[2px_2px_4px_rgba(0,0,0,0.2)] text-gray-900 placeholder-gray-500"
                   placeholder="Enter your name"
                   maxLength={20}
                 />
