@@ -71,10 +71,10 @@ export default function Home() {
       }
     });
 
-    // Auto-refresh every 10 seconds
+    // Auto-refresh every 5 seconds
     const refreshInterval = setInterval(() => {
       loadPixels();
-    }, 10000);
+    }, 5000);
 
     return () => {
       subscription.unsubscribe();
@@ -88,7 +88,7 @@ export default function Home() {
       setTimeout(async () => {
         await pixelOperations.resetAllPixels();
         // The real-time subscription will update the UI automatically
-      }, 5000); // Wait 5 seconds before reset
+      }, 10000); // Wait 10 seconds before reset
     }
   }, [pixels]);
 
