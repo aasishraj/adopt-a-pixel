@@ -5,7 +5,7 @@ import { pixelOperations, PixelData } from '../lib/supabase';
 
 // Using PixelData from supabase.ts instead of local interface
 
-const VERTICAL_PIXELS = 7;
+const VERTICAL_PIXELS = 8;
 const HORIZONTAL_PIXELS = 10;
 const TOTAL_PIXELS = VERTICAL_PIXELS * HORIZONTAL_PIXELS;
 
